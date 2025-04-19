@@ -96,7 +96,15 @@ echo_green ">> Automatically connecting to Testnet"
 echo "Please login to create an Ethereum Server Wallet"
 cd modal-login
 # Check if the yarn command exists; if not, install Yarn.
-source ~/.bashrc
+if [[ "$OSTYPE" == "darwin"* ]]; then
+    # macOS specific
+    [ -f ~/.zshrc ] && source ~/.zshrc
+    [ -f ~/.bash_profile ] && source ~/.bash_profile
+else
+    # Linux/other systems
+    [ -f ~/.bashrc ] && source ~/.bashrc
+fi
+
 if ! command -v yarn > /dev/null 2>&1; then
     # Detect Ubuntu (including WSL Ubuntu) and install Yarn accordingly
     if grep -qi "ubuntu" /etc/os-release 2> /dev/null || uname -r | grep -qi "microsoft"; then

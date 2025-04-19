@@ -18,8 +18,7 @@ class TestnetGRPOTrainer(HivemindGRPOTrainer):
 
     def train_stages(self, round_num, start_stage, is_coordinator):
         super().train_stages(round_num, start_stage, is_coordinator)
-        winners = self.stage_data.round_winner_fn()
-        self.submit_winners(round_num, winners)
+        self.submit_winners(round_num, self.stage_data.round_winner_fn())
 
     def catch_up_train(self, start_round=0, end_round=None):
         """
@@ -50,7 +49,7 @@ class TestnetGRPOTrainer(HivemindGRPOTrainer):
             break
         self.logger.info(f"补跑完成，从 {start_round} 到 {end_round}")
 
-    def train(self):
+    def _train(self):
         try:
             curr_round, _ = self.get_round_and_stage()
             if curr_round > 0:

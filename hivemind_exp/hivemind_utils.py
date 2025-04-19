@@ -67,7 +67,7 @@ class StageData:
     round_winner_fn: Callable
 
     max_rounds: int = 100
-    train_timeout: int = 60 * 60 * 24 * 4  # days
+    train_timeout: int = 60 * 60 * 24 * 31  # days
     round_timeout: int = 60 * 60 * 4  # hours
 
     def __len__(self):

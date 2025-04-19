@@ -5,13 +5,41 @@ set -euo pipefail
 # General arguments
 ROOT=$PWD
 
+# 添加重启相关变量
+MAX_RETRIES=10
+RETRY_COUNT=0
+RETRY_DELAY=120  # 重启等待时间（秒）
+
+# Mac特定的内存优化设置
+if [[ "$OSTYPE" == "darwin"* ]]; then
+    # Mac环境变量设置
+    export PYTORCH_ENABLE_MPS_FALLBACK=1
+    export PYTORCH_MPS_HIGH_WATERMARK_RATIO=0.0
+    export OMP_NUM_THREADS=2
+    export MKL_NUM_THREADS=2
+    export VECLIB_MAXIMUM_THREADS=2
+    export NUMEXPR_NUM_THREADS=2
+    export NUMEXPR_MAX_THREADS=2
+    
+    # Mac上使用不同的内存限制方式
+    export PYTORCH_MPS_ALLOCATOR_POLICY=delayed
+    export PYTORCH_MPS_ALLOCATOR_POLICY_MAX_ALLOCATION=6144  # 限制最大内存分配为6GB
+else
+    # 非Mac环境设置
+    export CUDA_VISIBLE_DEVICES=0
+    export PYTORCH_CUDA_ALLOC_CONF=max_split_size_mb:512
+    export OMP_NUM_THREADS=4
+    export MKL_NUM_THREADS=4
+    ulimit -v 16000000
+fi
+
 export PUB_MULTI_ADDRS
 export PEER_MULTI_ADDRS
 export HOST_MULTI_ADDRS
 export IDENTITY_PATH
 export CONNECT_TO_TESTNET
 export ORG_ID
-export HF_HUB_DOWNLOAD_TIMEOUT=120  # 2 minutes
+export HF_HUB_DOWNLOAD_TIMEOUT=120
 
 # Check if public multi-address is given else set to default
 DEFAULT_PUB_MULTI_ADDRS=""
@@ -60,69 +88,68 @@ cleanup() {
 
 trap cleanup EXIT
 
-while true; do
-    echo -en $GREEN_TEXT
-    read -p ">> Would you like to connect to the Testnet? [Y/n] " yn
-    echo -en $RESET_TEXT
-    yn=${yn:-Y}  # Default to "Y" if the user presses Enter
-    case $yn in
-        [Yy]*)  CONNECT_TO_TESTNET=True && break ;;
-        [Nn]*)  CONNECT_TO_TESTNET=False && break ;;
-        *)  echo ">>> Please answer yes or no." ;;
-    esac
-done
+# 自动设置连接选项
+CONNECT_TO_TESTNET=True
+echo_green ">> Automatically connecting to Testnet"
 
-if [ "$CONNECT_TO_TESTNET" = "True" ]; then
-    # Run modal_login server.
-    echo "Please login to create an Ethereum Server Wallet"
-    cd modal-login
-    # Check if the yarn command exists; if not, install Yarn.
-    source ~/.bashrc
-    if ! command -v yarn > /dev/null 2>&1; then
-        # Detect Ubuntu (including WSL Ubuntu) and install Yarn accordingly
-        if grep -qi "ubuntu" /etc/os-release 2> /dev/null || uname -r | grep -qi "microsoft"; then
-            echo "Detected Ubuntu or WSL Ubuntu. Installing Yarn via apt..."
-            curl -sS https://dl.yarnpkg.com/debian/pubkey.gpg | sudo apt-key add -
-            echo "deb https://dl.yarnpkg.com/debian/ stable main" | sudo tee /etc/apt/sources.list.d/yarn.list
-            sudo apt update && sudo apt install -y yarn
-        else
-            echo "Yarn is not installed. Installing Yarn..."
-            curl -o- -L https://yarnpkg.com/install.sh | sh
-            echo 'export PATH="$HOME/.yarn/bin:$HOME/.config/yarn/global/node_modules/.bin:$PATH"' >> ~/.bashrc
-            source ~/.bashrc
-        fi
+# Run modal_login server.
+echo "Please login to create an Ethereum Server Wallet"
+cd modal-login
+# Check if the yarn command exists; if not, install Yarn.
+source ~/.bashrc
+if ! command -v yarn > /dev/null 2>&1; then
+    # Detect Ubuntu (including WSL Ubuntu) and install Yarn accordingly
+    if grep -qi "ubuntu" /etc/os-release 2> /dev/null || uname -r | grep -qi "microsoft"; then
+        echo "Detected Ubuntu or WSL Ubuntu. Installing Yarn via apt..."
+        curl -sS https://dl.yarnpkg.com/debian/pubkey.gpg | sudo apt-key add -
+        echo "deb https://dl.yarnpkg.com/debian/ stable main" | sudo tee /etc/apt/sources.list.d/yarn.list
+        sudo apt update && sudo apt install -y yarn
+    else
+        echo "Yarn is not installed. Installing Yarn..."
+        curl -o- -L https://yarnpkg.com/install.sh | sh
+        echo 'export PATH="$HOME/.yarn/bin:$HOME/.config/yarn/global/node_modules/.bin:$PATH"' >> ~/.bashrc
+        source ~/.bashrc
     fi
-    yarn install
-    yarn dev > /dev/null 2>&1 & # Run in background and suppress output
-
-    SERVER_PID=$!  # Store the process ID
-    echo "Started server process: $SERVER_PID"
-    sleep 5
-    open http://localhost:3000
-    cd ..
-
-    echo_green ">> Waiting for modal userData.json to be created..."
-    while [ ! -f "modal-login/temp-data/userData.json" ]; do
-        sleep 5  # Wait for 5 seconds before checking again
-    done
-    echo "Found userData.json. Proceeding..."
-
-    ORG_ID=$(awk 'BEGIN { FS = "\"" } !/^[ \t]*[{}]/ { print $(NF - 1); exit }' modal-login/temp-data/userData.json)
-    echo "Your ORG_ID is set to: $ORG_ID"
-
-    # Wait until the API key is activated by the client
-    echo "Waiting for API key to become activated..."
-    while true; do
-        STATUS=$(curl -s "http://localhost:3000/api/get-api-key-status?orgId=$ORG_ID")
-        if [[ "$STATUS" == "activated" ]]; then
-            echo "API key is activated! Proceeding..."
-            break
-        else
-            echo "Waiting for API key to be activated..."
-            sleep 5
-        fi
-    done
 fi
+yarn install
+yarn dev > /dev/null 2>&1 & # Run in background and suppress output
+
+SERVER_PID=$!  # Store the process ID
+echo "Started server process: $SERVER_PID"
+sleep 5
+if [[ "$OSTYPE" == "darwin"* ]]; then
+    # macOS
+    open http://localhost:3000
+elif [[ "$OSTYPE" == "msys" ]] || [[ "$OSTYPE" == "win32" ]]; then
+    # Windows
+    start http://localhost:3000
+else
+    # Linux
+    xdg-open http://localhost:3000 2>/dev/null || sensible-browser http://localhost:3000 2>/dev/null || python -m webbrowser http://localhost:3000
+fi
+cd ..
+
+echo_green ">> Waiting for modal userData.json to be created..."
+while [ ! -f "modal-login/temp-data/userData.json" ]; do
+    sleep 5  # Wait for 5 seconds before checking again
+done
+echo "Found userData.json. Proceeding..."
+
+ORG_ID=$(awk 'BEGIN { FS = "\"" } !/^[ \t]*[{}]/ { print $(NF - 1); exit }' modal-login/temp-data/userData.json)
+echo "Your ORG_ID is set to: $ORG_ID"
+
+# Wait until the API key is activated by the client
+echo "Waiting for API key to become activated..."
+while true; do
+    STATUS=$(curl -s "http://localhost:3000/api/get-api-key-status?orgId=$ORG_ID")
+    if [[ "$STATUS" == "activated" ]]; then
+        echo "API key is activated! Proceeding..."
+        break
+    else
+        echo "Waiting for API key to be activated..."
+        sleep 5
+    fi
+done
 
 pip_install() {
     pip install --disable-pip-version-check -q -r "$1"
@@ -146,37 +173,47 @@ fi
 
 echo_green ">> Done!"
 
-HF_TOKEN=${HF_TOKEN:-""}
-if [ -n "${HF_TOKEN}" ]; then # Check if HF_TOKEN is already set and use if so. Else give user a prompt to choose.
-    HUGGINGFACE_ACCESS_TOKEN=${HF_TOKEN}
-else
-    echo -en $GREEN_TEXT
-    read -p ">> Would you like to push models you train in the RL swarm to the Hugging Face Hub? [y/N] " yn
-    echo -en $RESET_TEXT
-    yn=${yn:-N} # Default to "N" if the user presses Enter
-    case $yn in
-        [Yy]*) read -p "Enter your Hugging Face access token: " HUGGINGFACE_ACCESS_TOKEN ;;
-        [Nn]*) HUGGINGFACE_ACCESS_TOKEN="None" ;;
-        *) echo ">>> No answer was given, so NO models will be pushed to Hugging Face Hub" && HUGGINGFACE_ACCESS_TOKEN="None" ;;
-    esac
-fi
+# 自动设置HF token选项
+HUGGINGFACE_ACCESS_TOKEN="None"
+echo_green ">> Automatically setting Hugging Face token to None"
 
-echo_green ">> Good luck in the swarm!"
+# 添加运行函数
+run_training() {
+    if [ -n "$ORG_ID" ]; then
+        python -m hivemind_exp.gsm8k.train_single_gpu \
+            --hf_token "$HUGGINGFACE_ACCESS_TOKEN" \
+            --identity_path "$IDENTITY_PATH" \
+            --modal_org_id "$ORG_ID" \
+            --config "$CONFIG_PATH"
+    else
+        python -m hivemind_exp.gsm8k.train_single_gpu \
+            --hf_token "$HUGGINGFACE_ACCESS_TOKEN" \
+            --identity_path "$IDENTITY_PATH" \
+            --public_maddr "$PUB_MULTI_ADDRS" \
+            --initial_peers "$PEER_MULTI_ADDRS" \
+            --host_maddr "$HOST_MULTI_ADDRS" \
+            --config "$CONFIG_PATH"
+    fi
+}
 
-if [ -n "$ORG_ID" ]; then
-    python -m hivemind_exp.gsm8k.train_single_gpu \
-        --hf_token "$HUGGINGFACE_ACCESS_TOKEN" \
-        --identity_path "$IDENTITY_PATH" \
-        --modal_org_id "$ORG_ID" \
-        --config "$CONFIG_PATH"
-else
-    python -m hivemind_exp.gsm8k.train_single_gpu \
-        --hf_token "$HUGGINGFACE_ACCESS_TOKEN" \
-        --identity_path "$IDENTITY_PATH" \
-        --public_maddr "$PUB_MULTI_ADDRS" \
-        --initial_peers "$PEER_MULTI_ADDRS" \
-        --host_maddr "$HOST_MULTI_ADDRS" \
-        --config "$CONFIG_PATH"
-fi
+# 主循环
+while [ $RETRY_COUNT -lt $MAX_RETRIES ]; do
+    echo_green ">> Starting training attempt $((RETRY_COUNT + 1)) of $MAX_RETRIES"
+    
+    # 运行训练
+    if run_training; then
+        echo_green ">> Training completed successfully"
+        exit 0
+    else
+        RETRY_COUNT=$((RETRY_COUNT + 1))
+        if [ $RETRY_COUNT -lt $MAX_RETRIES ]; then
+            echo_green ">> Training failed. Waiting $RETRY_DELAY seconds before retry..."
+            sleep $RETRY_DELAY
+        else
+            echo_green ">> Maximum retry attempts reached. Exiting..."
+            exit 1
+        fi
+    fi
+done
 
 wait  # Keep script running until Ctrl+C

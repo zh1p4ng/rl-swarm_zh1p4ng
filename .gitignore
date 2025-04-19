@@ -19,3 +19,4 @@ web/ui/dist/
 
 dist/
 MODULE.bazel.lock
+**/.direnv

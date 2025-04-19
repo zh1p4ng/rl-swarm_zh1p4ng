@@ -23,6 +23,7 @@ from hivemind_exp.dht_utils import (
 from hivemind_exp.hivemind_utils import HivemindNode, StageData
 from hivemind_exp.name_utils import get_name_from_peer_id
 
+MAX_TRAIN_FAILS = 5
 
 class HivemindGRPOTrainer:
     """
@@ -70,29 +71,28 @@ class HivemindGRPOTrainer:
             # Reward function must save node.outputs + node.rewards!
             # This is only here to publish to the DHT at the right time.
             # Only publish to DHT every N steps
-            if self.state.global_step % CADENCE_OF_UPDATE_STEPS == 0:
-                question = self.node.outputs["question"]
-                q_hash = hashlib.md5(question.encode()).hexdigest()
+            question = self.node.outputs["question"]
+            q_hash = hashlib.md5(question.encode()).hexdigest()
 
-                value = (time.time(), self.node.outputs)
-                self.dht.store(
-                    key=node_outputs_key(self.node),
-                    subkey=q_hash,
-                    value=value,
-                    expiration_time=get_dht_time() + self.node.out_expiration,
-                )
-                self.node.put_stage_outputs(
-                    self.node.round_num, self.node.stage_num, q_hash, value
-                )
+            value = (time.time(), self.node.outputs)
+            self.dht.store(
+                key=node_outputs_key(self.node),
+                subkey=q_hash,
+                value=value,
+                expiration_time=get_dht_time() + self.node.out_expiration,
+            )
+            self.node.put_stage_outputs(
+                self.node.round_num, self.node.stage_num, q_hash, value
+            )
 
-                # Just the latest.
-                self.stage_rewards += sum(self.node.rewards)
-                self.dht.store(
-                    key=rewards_key(self.node.round_num, self.node.stage_num),
-                    subkey=self.node.key,
-                    value=self.stage_rewards,
-                    expiration_time=get_dht_time() + self.node.out_expiration,
-                )
+            # Just the latest.
+            self.stage_rewards += sum(self.node.rewards)
+            self.dht.store(
+                key=rewards_key(self.node.round_num, self.node.stage_num),
+                subkey=self.node.key,
+                value=self.stage_rewards,
+                expiration_time=get_dht_time() + self.node.out_expiration,
+            )
             if self.node.is_coordinator:
                 self.publish_leaderboard()
 

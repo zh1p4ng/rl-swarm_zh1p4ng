@@ -5,6 +5,9 @@ set -euo pipefail
 # General arguments
 ROOT=$PWD
 
+GREEN_TEXT="\033[32m"
+RESET_TEXT="\033[0m"
+
 echo_green() {
     echo -e "$GREEN_TEXT$1$RESET_TEXT"
 }
@@ -101,10 +104,6 @@ CPU_ONLY=${CPU_ONLY:-""}
 
 # Set if successfully parsed from modal-login/temp-data/userData.json.
 ORG_ID=${ORG_ID:-""}
-
-GREEN_TEXT="\033[32m"
-RESET_TEXT="\033[0m"
-
 
 
 ROOT_DIR="$(cd $(dirname ${BASH_SOURCE[0]}) && pwd)"

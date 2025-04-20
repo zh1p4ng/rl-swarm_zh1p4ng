@@ -37,9 +37,6 @@ check_and_cleanup_processes() {
         # 等待进程完全终止
         sleep 2
         
-        # 删除swarm.pem文件
-        rm -f "$ROOT/swarm.pem"
-        echo_green ">> 已删除swarm.pem文件"
     fi
 }
 

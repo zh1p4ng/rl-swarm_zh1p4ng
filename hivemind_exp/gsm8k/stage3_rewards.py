@@ -227,6 +227,11 @@ def final_correctness_reward_func(
     responses = [completion[0]["content"] for completion in completions]
     p = prompts[0][-1]["content"]
     extracted_responses = [extract_xml_final_answer(r) for r in responses]
+    
+    # 添加对 answer 为 None 的处理
+    if answer is None:
+        return [0.0] * len(extracted_responses)
+        
     if (random.random() < 0.01) and logging:  # 1% chance to write samples into a file
         os.makedirs(
             f"model_output_samples/multi_stage_gsm8k_samples_from_{os.getenv('HOSTNAME')}",

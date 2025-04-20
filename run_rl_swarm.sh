@@ -5,6 +5,10 @@ set -euo pipefail
 # General arguments
 ROOT=$PWD
 
+echo_green() {
+    echo -e "$GREEN_TEXT$1$RESET_TEXT"
+}
+
 # 添加检查和清理进程的函数
 check_and_cleanup_processes() {
     echo_green ">> 检查并清理已存在的进程..."
@@ -101,9 +105,7 @@ ORG_ID=${ORG_ID:-""}
 GREEN_TEXT="\033[32m"
 RESET_TEXT="\033[0m"
 
-echo_green() {
-    echo -e "$GREEN_TEXT$1$RESET_TEXT"
-}
+
 
 ROOT_DIR="$(cd $(dirname ${BASH_SOURCE[0]}) && pwd)"
 

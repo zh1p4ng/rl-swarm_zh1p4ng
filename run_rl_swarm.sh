@@ -5,10 +5,44 @@ set -euo pipefail
 # General arguments
 ROOT=$PWD
 
+# 添加检查和清理进程的函数
+check_and_cleanup_processes() {
+    echo_green ">> 检查并清理已存在的进程..."
+    
+    # 检查是否有Python进程在使用swarm.pem
+    if [ -f "$ROOT/swarm.pem" ]; then
+        # Windows系统
+        if [[ "$OSTYPE" == "msys" ]] || [[ "$OSTYPE" == "win32" ]]; then
+            # 查找使用swarm.pem的Python进程
+            for pid in $(tasklist /FI "IMAGENAME eq python.exe" /FO CSV | findstr /i "python.exe"); do
+                pid=$(echo $pid | tr -d '"' | cut -d',' -f1)
+                echo_green ">> 终止Python进程: $pid"
+                taskkill /F /PID $pid 2>/dev/null || true
+            done
+        else
+            # Linux/Mac系统
+            for pid in $(lsof -t "$ROOT/swarm.pem" 2>/dev/null); do
+                echo_green ">> 终止进程: $pid"
+                kill -9 $pid 2>/dev/null || true
+            done
+        fi
+        
+        # 等待进程完全终止
+        sleep 2
+        
+        # 删除swarm.pem文件
+        rm -f "$ROOT/swarm.pem"
+        echo_green ">> 已删除swarm.pem文件"
+    fi
+}
+
 # 添加重启相关变量
 MAX_RETRIES=10
 RETRY_COUNT=0
 RETRY_DELAY=120  # 重启等待时间（秒）
+
+# 在开始训练前调用清理函数
+check_and_cleanup_processes
 
 # Mac特定的内存优化设置
 if [[ "$OSTYPE" == "darwin"* ]]; then

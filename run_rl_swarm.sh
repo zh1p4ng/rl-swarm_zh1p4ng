@@ -45,8 +45,6 @@ MAX_RETRIES=10
 RETRY_COUNT=0
 RETRY_DELAY=120  # 重启等待时间（秒）
 
-# 在开始训练前调用清理函数
-check_and_cleanup_processes
 
 # Mac特定的内存优化设置
 if [[ "$OSTYPE" == "darwin"* ]]; then
@@ -238,6 +236,8 @@ run_training() {
 
 # 主循环
 while [ $RETRY_COUNT -lt $MAX_RETRIES ]; do
+    # 在开始训练前调用清理函数
+    check_and_cleanup_processes
     echo_green ">> Starting training attempt $((RETRY_COUNT + 1)) of $MAX_RETRIES"
     
     # 运行训练

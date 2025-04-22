@@ -59,7 +59,7 @@ if [[ "$OSTYPE" == "darwin"* ]]; then
     
     # Mac上使用不同的内存限制方式
     export PYTORCH_MPS_ALLOCATOR_POLICY=delayed
-    export PYTORCH_MPS_ALLOCATOR_POLICY_MAX_ALLOCATION=5120  # 限制最大内存分配为6GB
+    export PYTORCH_MPS_ALLOCATOR_POLICY_MAX_ALLOCATION=6144  # 限制最大内存分配为6GB
 else
     # 非Mac环境设置
     export CUDA_VISIBLE_DEVICES=0
@@ -197,18 +197,26 @@ echo_green ">> Getting requirements..."
 pip_install "$ROOT"/requirements-hivemind.txt
 pip_install "$ROOT"/requirements.txt
 
-if ! command -v nvidia-smi &> /dev/null; then
-    # You don't have a NVIDIA GPU
-    CONFIG_PATH="$ROOT/hivemind_exp/configs/mac/grpo-qwen-2.5-0.5b-deepseek-r1.yaml"
-elif [ -n "$CPU_ONLY" ]; then
-    # ... or we don't want to use it
+echo_green "请选择运行模式: 1. GPU 模式 2. CPU 模式"
+read -p "请输入选项 (1 或 2): " MODE
+echo "----------------------------------------"
+
+if [ "$MODE" == "1" ]; then
+    if ! command -v nvidia-smi &> /dev/null; then
+        echo_green ">> 未检测到 NVIDIA GPU，切换到 CPU 模式"
+        CONFIG_PATH="$ROOT/hivemind_exp/configs/mac/grpo-qwen-2.5-0.5b-deepseek-r1.yaml"
+    elif
+        pip_install "$ROOT"/requirements_gpu.txt
+        CONFIG_PATH="$ROOT/hivemind_exp/configs/gpu/grpo-qwen-2.5-0.5b-deepseek-r1.yaml"
+elif [ "$MODE" == "2" ]; then
+    echo_green ">> 使用 CPU 模式"
     CONFIG_PATH="$ROOT/hivemind_exp/configs/mac/grpo-qwen-2.5-0.5b-deepseek-r1.yaml"
 else
-    # NVIDIA GPU found
-    pip_install "$ROOT"/requirements_gpu.txt
-    CONFIG_PATH="$ROOT/hivemind_exp/configs/gpu/grpo-qwen-2.5-0.5b-deepseek-r1.yaml"
+    echo_green ">> 无效选项，默认使用 CPU 模式"
+    CONFIG_PATH="$ROOT/hivemind_exp/configs/mac/grpo-qwen-2.5-0.5b-deepseek-r1.yaml"
 fi
 
+echo "----------------------------------------"
 echo_green ">> Done!"
 
 # 自动设置HF token选项

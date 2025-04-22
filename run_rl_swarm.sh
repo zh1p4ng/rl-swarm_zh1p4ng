@@ -15,29 +15,29 @@ echo_green() {
 # 添加检查和清理进程的函数
 check_and_cleanup_processes() {
     echo_green ">> 检查并清理已存在的进程..."
-    
-    # 检查是否有Python进程在使用swarm.pem
     if [ -f "$ROOT/swarm.pem" ]; then
-        # Windows系统
-        if [[ "$OSTYPE" == "msys" ]] || [[ "$OSTYPE" == "win32" ]]; then
-            # 查找使用swarm.pem的Python进程
-            for pid in $(tasklist /FI "IMAGENAME eq python.exe" /FO CSV | findstr /i "python.exe"); do
-                pid=$(echo $pid | tr -d '"' | cut -d',' -f1)
-                echo_green ">> 终止Python进程: $pid"
-                taskkill /F /PID $pid 2>/dev/null || true
-            done
-        else
-            # Linux/Mac系统
-            for pid in $(lsof -t "$ROOT/swarm.pem" 2>/dev/null); do
-                echo_green ">> 终止进程: $pid"
-                kill -9 $pid 2>/dev/null || true
-            done
-        fi
-        
-        # 等待进程完全终止
+        echo_green ">> 检测到 swarm.pem 文件: $ROOT/swarm.pem"
+        for pid in $(lsof -t "$ROOT/swarm.pem" 2>/dev/null); do
+            echo_green ">> 检测到使用 swarm.pem 的进程: $pid"
+            if kill -9 $pid 2>/dev/null; then
+                echo_green ">> 成功终止进程: $pid"
+            fi
+        done
         sleep 2
-        
     fi
+
+    for pid in $(pgrep -f "hivemind"); do
+        echo_green ">> 检测到 hivemind 相关进程: $pid"
+        if kill -9 $pid 2>/dev/null; then
+            echo_green ">> 成功终止进程: $pid"
+        fi
+    done
+    sleep 2
+
+    echo_green ">> 清理信号量..."
+    for sem in $(ipcs -s | awk '{print $2}' | tail -n +3); do
+        ipcrm -s $sem 2>/dev/null || true
+    done
 }
 
 # 添加重启相关变量
@@ -59,7 +59,7 @@ if [[ "$OSTYPE" == "darwin"* ]]; then
     
     # Mac上使用不同的内存限制方式
     export PYTORCH_MPS_ALLOCATOR_POLICY=delayed
-    export PYTORCH_MPS_ALLOCATOR_POLICY_MAX_ALLOCATION=6144  # 限制最大内存分配为6GB
+    export PYTORCH_MPS_ALLOCATOR_POLICY_MAX_ALLOCATION=5120  # 限制最大内存分配为6GB
 else
     # 非Mac环境设置
     export CUDA_VISIBLE_DEVICES=0

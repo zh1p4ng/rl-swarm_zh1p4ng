@@ -197,27 +197,28 @@ echo_green ">> Getting requirements..."
 pip_install "$ROOT"/requirements-hivemind.txt
 pip_install "$ROOT"/requirements.txt
 
-echo_green "请选择运行模式: 1. GPU 模式 2. CPU 模式"
-read -p "请输入选项 (1 或 2): " MODE
-echo "----------------------------------------"
-
-if [ "$MODE" == "1" ]; then
-    if ! command -v nvidia-smi &> /dev/null; then
-        echo_green ">> 未检测到 NVIDIA GPU，切换到 CPU 模式"
-        CONFIG_PATH="$ROOT/hivemind_exp/configs/mac/grpo-qwen-2.5-0.5b-deepseek-r1.yaml"
-    elif
-        pip_install "$ROOT"/requirements_gpu.txt
-        CONFIG_PATH="$ROOT/hivemind_exp/configs/gpu/grpo-qwen-2.5-0.5b-deepseek-r1.yaml"
-elif [ "$MODE" == "2" ]; then
-    echo_green ">> 使用 CPU 模式"
+echo_green ">> 检测系统环境..."
+if ! command -v nvidia-smi &> /dev/null; then
+    echo_green ">> 未检测到 NVIDIA GPU，默认使用 CPU 模式"
     CONFIG_PATH="$ROOT/hivemind_exp/configs/mac/grpo-qwen-2.5-0.5b-deepseek-r1.yaml"
 else
-    echo_green ">> 无效选项，默认使用 CPU 模式"
-    CONFIG_PATH="$ROOT/hivemind_exp/configs/mac/grpo-qwen-2.5-0.5b-deepseek-r1.yaml"
-fi
+    echo_green ">> 检测到 NVIDIA GPU"
+    echo_green "请选择运行模式: 1. GPU 模式 2. CPU 模式"
+    read -p "请输入选项 (1 或 2): " MODE
+    echo "----------------------------------------"
 
-echo "----------------------------------------"
-echo_green ">> Done!"
+    if [ "$MODE" == "1" ]; then
+        echo_green ">> 使用 GPU 模式"
+        pip_install "$ROOT"/requirements_gpu.txt
+        CONFIG_PATH="$ROOT/hivemind_exp/configs/gpu/grpo-qwen-2.5-0.5b-deepseek-r1.yaml"
+    elif [ "$MODE" == "2" ]; then
+        echo_green ">> 使用 CPU 模式"
+        CONFIG_PATH="$ROOT/hivemind_exp/configs/mac/grpo-qwen-2.5-0.5b-deepseek-r1.yaml"
+    else
+        echo_green ">> 无效选项，默认使用 CPU 模式"
+        CONFIG_PATH="$ROOT/hivemind_exp/configs/mac/grpo-qwen-2.5-0.5b-deepseek-r1.yaml"
+    fi
+fi
 
 # 自动设置HF token选项
 HUGGINGFACE_ACCESS_TOKEN="None"

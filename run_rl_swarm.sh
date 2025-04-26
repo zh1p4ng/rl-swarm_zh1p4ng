@@ -201,6 +201,7 @@ echo_green ">> 检测系统环境..."
 if ! command -v nvidia-smi &> /dev/null; then
     echo_green ">> 未检测到 NVIDIA GPU，默认使用 CPU 模式"
     CONFIG_PATH="$ROOT/hivemind_exp/configs/mac/grpo-qwen-2.5-0.5b-deepseek-r1.yaml"
+    export CUDA_VISIBLE_DEVICES=""
 else
     echo_green ">> 检测到 NVIDIA GPU"
     echo_green "请选择运行模式: 1. GPU 模式 2. CPU 模式"
@@ -217,6 +218,7 @@ else
     else
         echo_green ">> 无效选项，默认使用 CPU 模式"
         CONFIG_PATH="$ROOT/hivemind_exp/configs/mac/grpo-qwen-2.5-0.5b-deepseek-r1.yaml"
+        export CUDA_VISIBLE_DEVICES=""
     fi
 fi
 
@@ -245,6 +247,7 @@ run_training() {
 
 # 主循环
 while [ $RETRY_COUNT -lt $MAX_RETRIES ]; do
+
     # 在开始训练前调用清理函数
     check_and_cleanup_processes
     echo_green ">> Starting training attempt $((RETRY_COUNT + 1)) of $MAX_RETRIES"
